@@ -1,9 +1,14 @@
 const express = require('express');
+const dotenv = require('dotenv')
 const app = express();
 const port = 3000;
-const mariadb = require('mariadb');
 const cors = require('cors');
+const request = require('request')
 
+dotenv.config()
+
+app.set('view engine', 'ejs')
+app.use(express.static('public'))
 const swaggerJsDoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
@@ -18,57 +23,114 @@ const swaggerOptions = {
             },
             servers: ['https://localhost:3000'],
             schemes: ['https', 'http']
-            // servers: ['http://localhost:3000', 'http://206.81.3.222:3000/']
         }
     },
+    apis: ['./index.js']
+
 }
+
+
+
+app.use(cors());
+
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+app.use('/api', require('./tsRoute'));
+// app.get('/', (req, res) => {
+//     res.render('index')
+// })
+
+/**
+/**
+ * @swagger
+ * /list:
+ *  get:
+ *    description: Use to get a list of available voices
+ *    responses:
+ *      '200':
+ *        description: A successful response
+ *    parameters:
+ *      - name: Ocp-Apim-Subscription-Key
+ *        in: headers
+ *        type: string
+ *        required: true
+ */
 //list of voices
+var options = {
+    'method': 'GET',
+    'url': 'https://eastus.tts.speech.microsoft.com/cognitiveservices/voices/list',
+    'headers': {
+        'Ocp-Apim-Subscription-Key': process.env.API_KEY_SPEECH
+    }
+};
+
 app.get('/list', async (req, res) => {
-    // https://learn.microsoft.com/en-us/azure/cognitive-services/speech-service/rest-text-to-speech?tabs=streaming#authentication
-    let conn;
-    try {
-
-        conn = await pool.getConnection();
-        var query = "INSERT INTO agents VALUES (agent_code, agent_name, working_area, commission, phone_no, country)";
-        var rows = await conn.query(query, [agents.agent_code, agents.agent_name, agents.working_area, agents.commission, agents.phone_no, agents.country]);
-        res.json(rows)
-    }
-    catch (err) {
-        throw err;
-    } finally {
-        if (conn) return conn.release();
-    }
+    request(options, function (error, response) {
+        if (error) throw new Error(error);
+        console.log(response.body);
+    });
+    // request('https://learn.microsoft.com/en-us/azure/cognitive-services/speech-service/rest-text-to-speech?tabs=streaming#authentication',
+    //     async (error, response, body) => {
+    //         console.log("prompt:" + prompt);
+    //         //start synthesizer and await results
+    //         if (!error && response.statusCode == 200) {
+    //             console.log(body);
+    // }
+    // fs.writeFileSync("data.html", body);
+    // console.log(req)
+    // })
 })
+/**
+/**
+ * @swagger
+ * /text:
+ *  post:
+ *    description: Use to synthesize text to speech with default voice
+ *    responses:
+ *      '200':
+ *        description: A successful response
+ *  parameters:
+ *      - name: Ocp-Apim-Subscription-Key
+ *        in: header
+ *        required: true
+ *        type: string
+ *      - name: Content-Type
+ *        in: header
+ *        required: true
+ *        type: string
+ *      - name: X-Microsoft-OutputFormat
+ *        in: header
+ *        required: true
+ *        type: string
+ *      - name: requestBody
+ *        type: string
+ *        in: body
+ *        required: true    
+ */
 //convert text to speech
-app.post('/textToSpeech', async (req, res) => {
+app.post('/text', async (req, res) => {
     // https://eastus.tts.speech.microsoft.com/cognitiveservices/v1
-    let conn;
-    try {
 
-        conn = await pool.getConnection();
-        var query = "INSERT INTO agents VALUES (agent_code, agent_name, working_area, commission, phone_no, country)";
-        var rows = await conn.query(query, [agents.agent_code, agents.agent_name, agents.working_area, agents.commission, agents.phone_no, agents.country]);
-        res.json(rows)
-    }
-    catch (err) {
-        throw err;
-    } finally {
-        if (conn) return conn.release();
-    }
+    console.log(req)
+
+    var options1 = {
+        'method': 'POST',
+        'url': 'https://eastus.tts.speech.microsoft.com/cognitiveservices/v1',
+        'headers': {
+            'Ocp-Apim-Subscription-Key': process.env.API_KEY_SPEECH,
+            'Content-Type': 'application/ssml+xml',
+            'X-Microsoft-OutputFormat': 'riff-24khz-16bit-mono-pcm'
+        },
+        body: '<speak version=\'1.0\' xml:lang=\'en-US\'><voice xml:lang=\'en-US\' xml:gender=\'Female\'\n    name=\'en-US-JennyNeural\'>\n        I\'m excited to finish!\n</voice></speak>'
+
+    };
+
+    request(options1, function (error, response) {
+        if (error) throw new Error(error);
+        console.log(response.body);
+
+    });
 })
-//audio outputs
-app.post('/agent', async (req, res) => {
-    let conn;
-    try {
-
-        conn = await pool.getConnection();
-        var query = "INSERT INTO agents VALUES (agent_code, agent_name, working_area, commission, phone_no, country)";
-        var rows = await conn.query(query, [agents.agent_code, agents.agent_name, agents.working_area, agents.commission, agents.phone_no, agents.country]);
-        res.json(rows)
-    }
-    catch (err) {
-        throw err;
-    } finally {
-        if (conn) return conn.release();
-    }
+app.listen(port, () => {
+    console.log(`Example app listening at http://localhost:${port}`)
 })
